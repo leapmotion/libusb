@@ -132,9 +132,11 @@ static inline void list_add_tail(struct list_head *entry,
 
 static inline void list_del(struct list_head *entry)
 {
-	entry->next->prev = entry->prev;
-	entry->prev->next = entry->next;
-	entry->next = entry->prev = NULL;
+	if (entry->next && entry->prev) {
+		entry->next->prev = entry->prev;
+		entry->prev->next = entry->next;
+		entry->next = entry->prev = NULL;
+	}
 }
 
 static inline void *usbi_reallocf(void *ptr, size_t size)
