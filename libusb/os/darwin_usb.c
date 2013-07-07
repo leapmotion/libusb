@@ -1003,6 +1003,8 @@ static void darwin_close (struct libusb_device_handle *dev_handle) {
     }
 
     if (priv->is_open) {
+      /* suspend the device */
+      (*(dpriv->device))->USBDeviceSuspend(dpriv->device, 1);
       /* close the device */
       kresult = (*(dpriv->device))->USBDeviceClose(dpriv->device);
       if (kresult) {
