@@ -27,6 +27,9 @@
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/IOCFPlugIn.h>
 
+/* Include support for Mac OS X 10.6 */
+#undef kIOUSBDeviceInterfaceID500
+
 /* IOUSBInterfaceInferface */
 #if defined (kIOUSBInterfaceInterfaceID700) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_9
 
