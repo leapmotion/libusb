@@ -1380,6 +1380,7 @@ static int sysfs_get_device_list(struct libusb_context *ctx)
 	DIR *devices = opendir(SYSFS_DEVICE_PATH);
 	struct dirent *entry;
 	int r = LIBUSB_ERROR_IO;
+	int num_failed = 0;
 
 	if (!devices) {
 		usbi_err(ctx, "opendir devices failed errno=%d", errno);
@@ -1392,12 +1393,16 @@ static int sysfs_get_device_list(struct libusb_context *ctx)
 			continue;
 
 		if (sysfs_scan_device(ctx, entry->d_name)) {
+			num_failed++;
 			usbi_dbg("failed to enumerate dir entry %s", entry->d_name);
 			continue;
 		}
-
 		r = 0;
 	}
+
+	/* Clear error status if no devices failed to enumerate */
+	if (num_failed == 0)
+		r = 0;
 
 	closedir(devices);
 	return r;
