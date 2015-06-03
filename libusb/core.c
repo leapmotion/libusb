@@ -372,6 +372,7 @@ if (cfg != desired)
   * - libusb_free_usb_2_0_extension_descriptor()
   * - libusb_get_active_config_descriptor()
   * - libusb_get_bos_descriptor()
+  * - libusb_get_bus_frame_number()
   * - libusb_get_bus_number()
   * - libusb_get_config_descriptor()
   * - libusb_get_config_descriptor_by_value()
@@ -951,7 +952,7 @@ int API_EXPORTED libusb_get_port_path(libusb_context *ctx, libusb_device *dev,
  * function and make sure that you only access the parent before issuing
  * \ref libusb_free_device_list(). The reason is that libusb currently does
  * not maintain a permanent list of device instances, and therefore can
- * only guarantee that parents are fully instantiated within a 
+ * only guarantee that parents are fully instantiated within a
  * libusb_get_device_list() - libusb_free_device_list() block.
  */
 DEFAULT_VISIBILITY
@@ -1638,6 +1639,30 @@ int API_EXPORTED libusb_release_interface(libusb_device_handle *dev,
 out:
 	usbi_mutex_unlock(&dev->lock);
 	return r;
+}
+
+/** \ingroup dev
+ * Obtain the current bus frame number of the attached device.
+ *
+ * \param dev a device handle
+ * \param frame output location to store the frame number
+ * \returns 0 on success
+ * \returns LIBUSB_ERROR_NOT_FOUND if no interfaces were claimed
+ * \returns LIBUSB_ERROR_NO_DEVICE if the device has been disconnected
+ * \returns LIBUSB_ERROR_NOT_SUPPORTED on platforms where the functionality
+ * is not available
+ * \returns another LIBUSB_ERROR code on other failure
+ */
+int API_EXPORTED libusb_get_bus_frame_number(libusb_device_handle *dev, uint64_t *frame)
+{
+	usbi_dbg("get_bus_frame_number");
+	if (!dev->dev->attached)
+		return LIBUSB_ERROR_NO_DEVICE;
+
+	if (usbi_backend->get_bus_frame_number)
+		return usbi_backend->get_bus_frame_number(dev, frame);
+	else
+		return LIBUSB_ERROR_NOT_SUPPORTED;
 }
 
 /** \ingroup dev

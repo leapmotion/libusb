@@ -1064,6 +1064,12 @@ struct usbi_os_backend {
 	clockid_t (*get_timerfd_clockid)(void);
 #endif
 
+	/* Get the current bus frame number. Optional.
+
+	 * Return 0 on success, or a LIBUSB_ERROR code on failure.
+	 */
+	int (*get_bus_frame_number)(struct libusb_device_handle *handle, uint64_t *frame);
+
 	/* Number of bytes to reserve for per-device private backend data.
 	 * This private data area is accessible through the "os_priv" field of
 	 * struct libusb_device. */

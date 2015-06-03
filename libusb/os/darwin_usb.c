@@ -607,7 +607,7 @@ static int darwin_check_configuration (struct libusb_context *ctx, struct darwin
   } else
     /* not configured */
     dev->active_config = 0;
-  
+
   usbi_dbg ("active config: %u, first config: %u", dev->active_config, dev->first_config);
 
   return 0;
@@ -1866,6 +1866,25 @@ static int darwin_clock_gettime(int clk_id, struct timespec *tp) {
   return 0;
 }
 
+static int darwin_get_bus_frame_number(struct libusb_device_handle *dev_handle, uint64_t *frame) {
+  struct darwin_device_handle_priv *priv = (struct darwin_device_handle_priv *)dev_handle->os_priv;
+  int rc, iface;
+
+  for (iface = 0 ; iface < USB_MAXINTERFACES ; iface++) {
+    if (dev_handle->claimed_interfaces & (1 << iface)) {
+      struct darwin_interface *cInterface = &priv->interfaces[iface];
+      AbsoluteTime atTime;
+
+      rc = (*(cInterface->interface))->GetBusFrameNumber (cInterface->interface, frame, &atTime);
+      if (kIOReturnSuccess != rc)
+        continue;
+
+      return 0;
+    }
+  }
+  return LIBUSB_ERROR_NOT_FOUND;
+}
+
 #if InterfaceVersion >= 550
 static int darwin_alloc_streams (struct libusb_device_handle *dev_handle, uint32_t num_streams, unsigned char *endpoints,
                                  int num_endpoints) {
@@ -1964,6 +1983,8 @@ const struct usbi_os_backend darwin_backend = {
         .handle_transfer_completion = darwin_handle_transfer_completion,
 
         .clock_gettime = darwin_clock_gettime,
+
+        .get_bus_frame_number = darwin_get_bus_frame_number,
 
         .device_priv_size = sizeof(struct darwin_device_priv),
         .device_handle_priv_size = sizeof(struct darwin_device_handle_priv),
