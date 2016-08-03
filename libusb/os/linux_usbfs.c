@@ -1463,6 +1463,15 @@ static int op_open(struct libusb_device_handle *handle)
 	return usbi_add_pollfd(HANDLE_CTX(handle), hpriv->fd, POLLOUT);
 }
 
+#ifdef __ANDROID__
+static int op_open2(struct libusb_device_handle *handle, int fd)
+{
+	struct linux_device_handle_priv *hpriv = _device_handle_priv(handle);
+	hpriv->fd = fd;
+	return usbi_add_pollfd(HANDLE_CTX(handle), hpriv->fd, POLLOUT);
+}
+#endif
+
 static void op_close(struct libusb_device_handle *dev_handle)
 {
 	int fd = _device_handle_priv(dev_handle)->fd;
@@ -2796,64 +2805,87 @@ static clockid_t op_get_timerfd_clockid(void)
 #endif
 
 #ifdef __ANDROID__
-static int op_get_device_list(struct libusb_context * ctx,
-	struct discovered_devs **discdevs)
+struct libusb_device* op_get_device2(struct libusb_context *ctx, const char *dev_node,
+	const char* descriptors, size_t descriptors_size)
 {
-	struct discovered_devs *ddd;
-	DIR *devices = opendir(SYSFS_DEVICE_PATH);
-	struct dirent *entry;
-	int r = LIBUSB_SUCCESS;
-	int num_failed = 0;
 	uint8_t busnum, devaddr;
+	unsigned int session_id;
+	if (linux_get_device_address(ctx, 0, &busnum, &devaddr,
+		dev_node, NULL) != LIBUSB_SUCCESS) {
+		usbi_dbg("failed to get device address (%s)", dev_node);
+		return NULL;
+	}
+
+	/* make sure device is enumerated */
+	if (linux_enumerate_device2(ctx, busnum, devaddr, descriptors, descriptors_size) < 0) {
+		usbi_dbg("failed to enumerate (%s)", dev_node);
+		return NULL;
+	}
+
+	/* retrieve the device */
+	session_id = busnum << 8 | devaddr;
+	usbi_dbg("busnum %d devaddr %d session_id %ld", busnum, devaddr,
+		session_id);
+
+	return usbi_get_device_by_session_id(ctx, session_id);
+}
+
+static int initialize_device2(struct libusb_device *dev, uint8_t busnum,
+	uint8_t devaddr, const char* descriptors, size_t descriptors_size)
+{
+	struct linux_device_priv *priv = _device_priv(dev);
+
+	dev->bus_number = busnum;
+	dev->device_address = devaddr;
+
+	priv->descriptors = usbi_reallocf(priv->descriptors,
+					  descriptors_size);
+	if (!priv->descriptors) {
+		return LIBUSB_ERROR_NO_MEM;
+	}
+	memcpy(priv->descriptors, descriptors, descriptors_size);
+	priv->descriptors_len = descriptors_size;
+	return LIBUSB_SUCCESS;
+}
+
+int linux_enumerate_device2(struct libusb_context *ctx, uint8_t busnum, uint8_t devaddr,
+	const char* descriptors, size_t descriptors_size)
+{
 	unsigned long session_id;
 	struct libusb_device *dev;
+	int r = 0;
 
-	if (!devices) {
-		usbi_err(ctx, "opendir devices failed errno=%d", errno);
-		return r;
-	}
+	/* FIXME: session ID is not guaranteed unique as addresses can wrap and
+	 * will be reused. instead we should add a simple sysfs attribute with
+	 * a session ID. */
+	session_id = busnum << 8 | devaddr;
+	usbi_dbg("busnum %d devaddr %d session_id %ld", busnum, devaddr,
+		session_id);
 
-	while ((entry = readdir(devices))) {
-		if ((!isdigit(entry->d_name[0]) && strncmp(entry->d_name, "usb", 3))
-				|| strchr(entry->d_name, ':'))
-			continue;
-
-		r = linux_get_device_address (ctx, 0, &busnum, &devaddr, NULL, entry->d_name);
-		if (LIBUSB_SUCCESS != r) {
-			num_failed++;
-			usbi_dbg("failed to enumerate dir entry %s", entry->d_name);
-			continue;
-		}
-		session_id = busnum << 8 | devaddr;
-		usbi_dbg("busnum %d devaddr %d session_id %ld", busnum, devaddr,
-			 session_id);
-		dev = usbi_get_device_by_session_id(ctx, session_id);
-		if (dev == NULL) {
-			dev = usbi_alloc_device(ctx, session_id);
-			if (!dev) {
-				r = LIBUSB_ERROR_NO_MEM;
-				goto close_out;
-			}
-			r = initialize_device(dev, busnum, devaddr, entry->d_name);
-			if (r < 0)
-				goto out;
-			r = usbi_sanitize_device(dev);
-			if (r < 0)
-				goto out;
-
-		}
-		ddd = discovered_devs_append(*discdevs, dev);
-		if (ddd == NULL)
-			goto out;
+	dev = usbi_get_device_by_session_id(ctx, session_id);
+	if (dev) {
+		/* device already exists in the context */
+		usbi_dbg("session_id %ld already exists", session_id);
 		libusb_unref_device(dev);
-		*discdevs = ddd;
+		return LIBUSB_SUCCESS;
 	}
-	closedir(devices);
-	return r;
+
+	usbi_dbg("allocating new device for %d/%d (session %ld)",
+		 busnum, devaddr, session_id);
+	dev = usbi_alloc_device(ctx, session_id);
+	if (!dev)
+		return LIBUSB_ERROR_NO_MEM;
+
+	r = initialize_device2(dev, busnum, devaddr, descriptors, descriptors_size);
+	if (r < 0)
+		goto out;
+	r = usbi_sanitize_device(dev);
+	if (r < 0)
+		goto out;
+
 out:
-	libusb_unref_device(dev);
-close_out:
-	closedir(devices);
+	if (r < 0)
+		libusb_unref_device(dev);
 	return r;
 }
 #endif
@@ -2863,18 +2895,24 @@ const struct usbi_os_backend linux_usbfs_backend = {
 	.caps = USBI_CAP_HAS_HID_ACCESS|USBI_CAP_SUPPORTS_DETACH_KERNEL_DRIVER|USBI_CAP_HAS_POLLABLE_DEVICE_FD,
 	.init = op_init,
 	.exit = op_exit,
-#ifdef __ANDROID__
-	.get_device_list = op_get_device_list,
-#else
 	.get_device_list = NULL,
-#endif
 	.hotplug_poll = op_hotplug_poll,
 	.get_device_descriptor = op_get_device_descriptor,
 	.get_active_config_descriptor = op_get_active_config_descriptor,
 	.get_config_descriptor = op_get_config_descriptor,
 	.get_config_descriptor_by_value = op_get_config_descriptor_by_value,
 
+#ifdef __ANDROID__
+	.get_device2 = op_get_device2,
+#else
+	.get_device2 = NULL,
+#endif
 	.open = op_open,
+#ifdef __ANDROID__
+	.open2 = op_open2,
+#else
+	.open2 = NULL,
+#endif
 	.close = op_close,
 	.get_configuration = op_get_configuration,
 	.set_configuration = op_set_configuration,
