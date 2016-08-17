@@ -1476,7 +1476,10 @@ static void op_close(struct libusb_device_handle *dev_handle)
 {
 	int fd = _device_handle_priv(dev_handle)->fd;
 	usbi_remove_pollfd(HANDLE_CTX(dev_handle), fd);
+	//open(fd) is called in java side as is close.
+#ifndef __ANDROID__
 	close(fd);
+#endif
 }
 
 static int op_get_configuration(struct libusb_device_handle *handle,
