@@ -2228,7 +2228,7 @@ int usbi_gettimeofday(struct timeval *tp, void *tzp)
 static void usbi_log_str(struct libusb_context *ctx,
 	enum libusb_log_level level, const char * str)
 {
-#if defined(USE_SYSTEM_LOGGING_FACILITY)
+#if defined(__ANDROID__) || defined(USE_SYSTEM_LOGGING_FACILITY)
 #if defined(OS_WINDOWS) || defined(OS_WINCE)
 	/* Windows CE only supports the Unicode version of OutputDebugString. */
 	WCHAR wbuf[USBI_MAX_LOG_LEN];
@@ -2242,7 +2242,7 @@ static void usbi_log_str(struct libusb_context *ctx,
 	case LIBUSB_LOG_LEVEL_ERROR: priority = ANDROID_LOG_ERROR; break;
 	case LIBUSB_LOG_LEVEL_DEBUG: priority = ANDROID_LOG_DEBUG; break;
 	}
-	__android_log_write(priority, "libusb", str);
+        __android_log_print(ANDROID_LOG_DEBUG, "leapd", str);
 #elif defined(HAVE_SYSLOG_FUNC)
 	int syslog_level = LOG_INFO;
 	switch (level) {
