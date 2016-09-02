@@ -1322,7 +1322,7 @@ int API_EXPORTED libusb_open2(libusb_device *dev, int fd,
 	if (!_handle)
 		return LIBUSB_ERROR_NO_MEM;
 
-	r = usbi_mutex_init(&_handle->lock, NULL);
+	r = usbi_mutex_init(&_handle->lock);
 	if (r) {
 		free(_handle);
 		return LIBUSB_ERROR_OTHER;
@@ -1346,16 +1346,6 @@ int API_EXPORTED libusb_open2(libusb_device *dev, int fd,
 	list_add(&_handle->list, &ctx->open_devs);
 	usbi_mutex_unlock(&ctx->open_devs_lock);
 	*handle = _handle;
-
-	if (usbi_backend->caps & USBI_CAP_HAS_POLLABLE_DEVICE_FD) {
-		/* At this point, we want to interrupt any existing event handlers so
-		 * that they realise the addition of the new device's poll fd. One
-		 * example when this is desirable is if the user is running a separate
-		 * dedicated libusb events handling thread, which is running with a long
-		 * or infinite timeout. We want to interrupt that iteration of the loop,
-		 * so that it picks up the new fd, and then continues. */
-		usbi_fd_notification(ctx);
-	}
 
 	return 0;
 }
@@ -1430,6 +1420,7 @@ static void do_close(struct libusb_context *ctx,
 			continue;
 
 		usbi_mutex_lock(&itransfer->lock);
+
 		if (!(itransfer->state_flags & USBI_TRANSFER_DEVICE_DISAPPEARED)) {
 			usbi_err(ctx, "Device handle closed while transfer was still being processed, but the device is still connected as far as we know");
 
@@ -2434,7 +2425,7 @@ static void usbi_log_str(struct libusb_context *ctx,
 	case LIBUSB_LOG_LEVEL_ERROR: priority = ANDROID_LOG_ERROR; break;
 	case LIBUSB_LOG_LEVEL_DEBUG: priority = ANDROID_LOG_DEBUG; break;
 	}
-	__android_log_write(priority, "libusb", str);
+	__android_log_print(priority, "libusb", str);
 #elif defined(HAVE_SYSLOG_FUNC)
 	int syslog_level = LOG_INFO;
 	switch (level) {
