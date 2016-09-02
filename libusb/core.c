@@ -1319,7 +1319,7 @@ int API_EXPORTED libusb_open2(libusb_device *dev, int fd,
 	if (!_handle)
 		return LIBUSB_ERROR_NO_MEM;
 
-	r = usbi_mutex_init(&_handle->lock, NULL);
+	r = usbi_mutex_init(&_handle->lock);
 	if (r) {
 		free(_handle);
 		return LIBUSB_ERROR_OTHER;
@@ -1417,6 +1417,7 @@ static void do_close(struct libusb_context *ctx,
 			continue;
 
 		usbi_mutex_lock(&itransfer->lock);
+
 		if (!(itransfer->state_flags & USBI_TRANSFER_DEVICE_DISAPPEARED)) {
 			usbi_err(ctx, "Device handle closed while transfer was still being processed, but the device is still connected as far as we know");
 
@@ -2474,7 +2475,7 @@ static void usbi_log_str(enum libusb_log_level level, const char *str)
 	case LIBUSB_LOG_LEVEL_INFO: priority = ANDROID_LOG_INFO; break;
 	case LIBUSB_LOG_LEVEL_DEBUG: priority = ANDROID_LOG_DEBUG; break;
 	}
-	__android_log_write(priority, "libusb", str);
+	__android_log_print(priority, "libusb", str);
 #elif defined(HAVE_SYSLOG_FUNC)
 	int syslog_level = LOG_INFO;
 	switch (level) {
