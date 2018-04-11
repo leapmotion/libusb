@@ -3,28 +3,20 @@
 ::# you can pass the following arguments (case insensitive):
 ::# - "DLL" to build a DLL instead of a static library
 ::# - "/MT" to build a static library compatible with MSVC's /MT option (LIBCMT vs MSVCRT)
-::# - "USBDK" to build with UsbDk backend
 
 if Test%BUILD_ALT_DIR%==Test goto usage
 
 ::# process commandline parameters
 set TARGET=LIBRARY
 set STATIC_LIBC=
-set WITH_USBDK=
 set version=1.0
 set PWD=%~dp0
 set BUILD_CMD=build -bcwgZ -M2
-
-:more_args
 
 if "%1" == "" goto no_more_args
 ::# /I for case insensitive
 if /I Test%1==TestDLL set TARGET=DYNLINK
 if /I Test%1==Test/MT set STATIC_LIBC=1
-if /I Test%1==TestUSBDK set WITH_USBDK=1
-
-shift
-goto more_args
 
 :no_more_args
 
@@ -53,13 +45,13 @@ set dstPath=%destType%\Release
 :isDebug
 
 if exist %destType% goto md2
-mkdir %destType%
+md %destType%
 :md2
 if exist %dstPath% goto md3
-mkdir %dstPath%
+md %dstPath%
 :md3
 if exist %dstPath%\dll goto md4
-mkdir %dstPath%\dll
+md %dstPath%\dll
 :md4
 if exist %dstPath%\lib goto md5
 md %dstPath%\lib
@@ -69,7 +61,7 @@ md %dstPath%\examples
 :md6
 @echo on
 
-@if /I NOT Test%1==TestDLL goto copylib
+if %TARGET%==LIBRARY goto copylib
 copy %srcPath%\libusb-%version%.dll %dstPath%\dll
 copy %srcPath%\libusb-%version%.pdb %dstPath%\dll
 :copylib
