@@ -1,8 +1,8 @@
-all: libusb-1.0.la libusb-1.0.dll
+all: libusb-1.0.@LIBUSB_NAME_MICRO@.la libusb-1.0.dll
 
 AUTOMAKE_OPTIONS = subdir-objects
 
-lib_LTLIBRARIES = libusb-1.0.la
+lib_LTLIBRARIES = libusb-1.0.@LIBUSB_NAME_MICRO@.la
 
 POSIX_POLL_SRC = os/poll_posix.c
 LINUX_USBFS_SRC = os/linux_usbfs.c
@@ -62,7 +62,7 @@ OS_SRC = $(WINDOWS_USB_SRC)
 libusb-1.0.rc: version.h version_nano.h
 endif
 
-libusb-1.0.dll: libusb-1.0.def libusb-1.0.la
+libusb-1.0.dll: libusb-1.0.def libusb-1.0.@LIBUSB_NAME_MICRO@.la
 if CREATE_IMPORT_LIB
 # Rebuild the import lib from the .def so that MS and MinGW DLLs can be interchanged
 	$(AM_V_GEN)$(DLLTOOL) $(DLLTOOLFLAGS) --kill-at --input-def $(srcdir)/libusb-1.0.def --dllname $@ --output-lib .libs/$@.a
@@ -74,15 +74,15 @@ else
 THREADS_SRC = os/threads_windows.h os/threads_windows.c
 endif
 
-libusb_1_0_la_CFLAGS = $(AM_CFLAGS)
-libusb_1_0_la_LDFLAGS = $(LTLDFLAGS)
-libusb_1_0_la_SOURCES = libusbi.h core.c descriptor.c io.c strerror.c sync.c \
+libusb_1_0_@LIBUSB_NAME_MICRO@_la_CFLAGS = $(AM_CFLAGS)
+libusb_1_0_@LIBUSB_NAME_MICRO@_la_LDFLAGS = $(LTLDFLAGS)
+libusb_1_0_@LIBUSB_NAME_MICRO@_la_SOURCES = libusbi.h core.c descriptor.c io.c strerror.c sync.c \
 	os/linux_usbfs.h os/darwin_usb.h os/windows_usb.h os/windows_common.h \
 	hotplug.h hotplug.c $(THREADS_SRC) $(OS_SRC) \
 	os/poll_posix.h os/poll_windows.h
 
 if OS_HAIKU
-libusb_1_0_la_LIBADD = os/haiku/libhaikuusb.la
+libusb_1_0_@LIBUSB_NAME_MICRO@_la_LIBADD = os/haiku/libhaikuusb.la
 endif
 
 hdrdir = $(includedir)/libusb-1.0

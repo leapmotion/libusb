@@ -318,7 +318,7 @@ AM_CFLAGS="${AM_CFLAGS} -Wall -Wundef -Wunused -Wstrict-prototypes -Werror-impli
 
 AC_SUBST(AM_CFLAGS)
 AC_SUBST(LTLDFLAGS)
-
+AC_SUBST(LIBUSB_NAME_MICRO, [LIBUSB_MICRO])
 AC_CONFIG_FILES([libusb-1.0.pc])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([libusb/Makefile])
